@@ -4,7 +4,7 @@
   <title><![CDATA[Ildar Musin's blog]]></title>
   <link href="http://zilder.github.io/atom.xml" rel="self"/>
   <link href="http://zilder.github.io/"/>
-  <updated>2016-10-21T18:35:20+03:00</updated>
+  <updated>2016-10-21T20:06:08+03:00</updated>
   <id>http://zilder.github.io/</id>
   <author>
     <name><![CDATA[Ildar Musin]]></name>
@@ -14,10 +14,13 @@
 
   
   <entry>
-    <title type="html"><![CDATA[Data Rotation With `pg_pathman`]]></title>
+    
+    <title type="html"><![CDATA[Data rotation with `pg_pathman`]]></title>
     <link href="http://zilder.github.io/blog/2016/10/21/data-rotation-with-pg-pathman/"/>
+    
     <updated>2016-10-21T18:19:36+03:00</updated>
     <id>http://zilder.github.io/blog/2016/10/21/data-rotation-with-pg-pathman</id>
+    
     <content type="html"><![CDATA[<p>Sometimes it is good to have only the most recent data in database and to remove outdated rows as new data comes (e.g., user activity logs or data from hardware sensors). This can be easily achieved using <a href="https://github.com/postgrespro/pg_pathman"><code>pg_pathman</code></a>&rsquo;s features. Let&rsquo;s say we have a temperature sensor and we need to store readings from it for the last few days.</p>
 
 <figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
@@ -160,6 +163,7 @@
 </span></code></pre></td></tr></table></div></figure>
 
 ]]></content>
+    
   </entry>
   
 </feed>
