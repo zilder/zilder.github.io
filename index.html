@@ -94,7 +94,7 @@
   </header>
 
 
-  <div class="entry-content"><p>One of the most frequiently asked questions about <code>pg_pathman</code> we get is how to specify a user-defined naming scheme for new partitions. Even though there is no standard way to do this, our suggestion is to write a callback function for partitioned table. Being set callback function performs some additional actions right after new partition is created.
+  <div class="entry-content"><p>One of the most frequiently asked questions about <a href="github.com/postgrespro/pg_pathman">pg_pathman</a> we get is how to specify a user-defined naming scheme for new partitions. Even though there is no standard way to do this, our suggestion is to write a callback function for partitioned table. Being set callback function performs some additional actions right after new partition is created.
 A callback function takes JSONB value as an argument which contains some essential information about partition being created. This json may look something like this (for RANGE-partitioned table):</p>
 
 <figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>

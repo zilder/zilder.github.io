@@ -4,7 +4,7 @@
   <title><![CDATA[Ildar Musin's blog]]></title>
   <link href="http://zilder.github.io/atom.xml" rel="self"/>
   <link href="http://zilder.github.io/"/>
-  <updated>2017-03-01T11:17:21+03:00</updated>
+  <updated>2017-03-01T13:29:58+03:00</updated>
   <id>http://zilder.github.io/</id>
   <author>
     <name><![CDATA[Ildar Musin]]></name>
@@ -21,7 +21,7 @@
     <updated>2017-03-01T11:06:00+03:00</updated>
     <id>http://zilder.github.io/blog/2017/03/01/user-defined-partition-names-in-pg_pathman</id>
     
-    <content type="html"><![CDATA[<p>One of the most frequiently asked questions about <code>pg_pathman</code> we get is how to specify a user-defined naming scheme for new partitions. Even though there is no standard way to do this, our suggestion is to write a callback function for partitioned table. Being set callback function performs some additional actions right after new partition is created.
+    <content type="html"><![CDATA[<p>One of the most frequiently asked questions about <a href="github.com/postgrespro/pg_pathman">pg_pathman</a> we get is how to specify a user-defined naming scheme for new partitions. Even though there is no standard way to do this, our suggestion is to write a callback function for partitioned table. Being set callback function performs some additional actions right after new partition is created.
 A callback function takes JSONB value as an argument which contains some essential information about partition being created. This json may look something like this (for RANGE-partitioned table):</p>
 
 <figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
