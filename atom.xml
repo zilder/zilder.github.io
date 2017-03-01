@@ -4,7 +4,7 @@
   <title><![CDATA[Ildar Musin's blog]]></title>
   <link href="http://zilder.github.io/atom.xml" rel="self"/>
   <link href="http://zilder.github.io/"/>
-  <updated>2016-10-21T20:06:08+03:00</updated>
+  <updated>2017-03-01T11:17:21+03:00</updated>
   <id>http://zilder.github.io/</id>
   <author>
     <name><![CDATA[Ildar Musin]]></name>
@@ -12,6 +12,255 @@
   </author>
   <generator uri="http://octopress.org/">Octopress</generator>
 
+  
+  <entry>
+    
+    <title type="html"><![CDATA[User-defined partition names in `pg_pathman`]]></title>
+    <link href="http://zilder.github.io/blog/2017/03/01/user-defined-partition-names-in-pg_pathman/"/>
+    
+    <updated>2017-03-01T11:06:00+03:00</updated>
+    <id>http://zilder.github.io/blog/2017/03/01/user-defined-partition-names-in-pg_pathman</id>
+    
+    <content type="html"><![CDATA[<p>One of the most frequiently asked questions about <code>pg_pathman</code> we get is how to specify a user-defined naming scheme for new partitions. Even though there is no standard way to do this, our suggestion is to write a callback function for partitioned table. Being set callback function performs some additional actions right after new partition is created.
+A callback function takes JSONB value as an argument which contains some essential information about partition being created. This json may look something like this (for RANGE-partitioned table):</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="err">{</span>
+</span><span class='line'>  <span class="ss">&quot;parent&quot;</span><span class="p">:</span> <span class="ss">&quot;my_table&quot;</span><span class="p">,</span>
+</span><span class='line'>  <span class="ss">&quot;parent_schema&quot;</span><span class="p">:</span> <span class="ss">&quot;public&quot;</span><span class="p">,</span>
+</span><span class='line'>  <span class="ss">&quot;parttype&quot;</span><span class="p">:</span> <span class="ss">&quot;2&quot;</span><span class="p">,</span>
+</span><span class='line'>  <span class="ss">&quot;partition&quot;</span><span class="p">:</span> <span class="ss">&quot;my_table_1&quot;</span><span class="p">,</span>
+</span><span class='line'>  <span class="ss">&quot;partition_schema&quot;</span><span class="p">:</span> <span class="ss">&quot;public&quot;</span><span class="p">,</span>
+</span><span class='line'>  <span class="ss">&quot;range_min&quot;</span><span class="p">:</span> <span class="ss">&quot;1&quot;</span><span class="p">,</span>
+</span><span class='line'>  <span class="ss">&quot;range_max&quot;</span><span class="p">:</span> <span class="ss">&quot;101&quot;</span>
+</span><span class='line'><span class="err">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>or (for HASH-partitioned table):</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="err">{</span>
+</span><span class='line'>  <span class="ss">&quot;parent&quot;</span><span class="p">:</span> <span class="ss">&quot;my_table&quot;</span><span class="p">,</span>
+</span><span class='line'>  <span class="ss">&quot;parent_schema&quot;</span><span class="p">:</span> <span class="ss">&quot;public&quot;</span><span class="p">,</span>
+</span><span class='line'>  <span class="ss">&quot;parttype&quot;</span><span class="p">:</span> <span class="ss">&quot;1&quot;</span><span class="p">,</span>
+</span><span class='line'>  <span class="ss">&quot;partition&quot;</span><span class="p">:</span> <span class="ss">&quot;my_table_0&quot;</span><span class="p">,</span>
+</span><span class='line'>  <span class="ss">&quot;partition_schema&quot;</span><span class="p">:</span> <span class="ss">&quot;public&quot;</span>
+</span><span class='line'><span class="err">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>So let&rsquo;s say we have <code>my_table</code> table which we want to be partitioned by range with one month interval.</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">create</span> <span class="k">table</span> <span class="n">my_table</span> <span class="p">(</span><span class="n">dt</span> <span class="k">timestamp</span> <span class="k">not</span> <span class="k">null</span><span class="p">);</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>And we want our partitions to be named like <code>abc_2016_01</code>, <code>abc_2016_02</code>, etc. In this case callback function may look like this:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">create</span> <span class="k">or</span> <span class="k">replace</span> <span class="k">function</span> <span class="n">my_callback</span><span class="p">(</span><span class="n">params</span> <span class="n">jsonb</span><span class="p">)</span>
+</span><span class='line'><span class="k">returns</span> <span class="n">void</span> <span class="k">as</span>
+</span><span class='line'><span class="err">$$</span>
+</span><span class='line'><span class="k">declare</span>
+</span><span class='line'>    <span class="n">range_min</span>    <span class="k">timestamp</span><span class="p">;</span>
+</span><span class='line'>    <span class="n">new_relname</span>  <span class="nb">text</span><span class="p">;</span>
+</span><span class='line'><span class="k">begin</span>
+</span><span class='line'>    <span class="n">range_min</span> <span class="p">:</span><span class="o">=</span> <span class="p">(</span><span class="n">params</span><span class="o">-&gt;&gt;</span><span class="s1">&#39;range_min&#39;</span><span class="p">)::</span><span class="k">timestamp</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="c1">-- generate new name for partition based on its parent name and its lower bound</span>
+</span><span class='line'>    <span class="n">new_relname</span> <span class="p">:</span><span class="o">=</span> <span class="n">format</span><span class="p">(</span><span class="s1">&#39;%s_%s&#39;</span><span class="p">,</span>
+</span><span class='line'>        <span class="n">params</span><span class="o">-&gt;&gt;</span><span class="s1">&#39;parent&#39;</span><span class="p">,</span>
+</span><span class='line'>        <span class="n">to_char</span><span class="p">(</span><span class="n">range_min</span><span class="p">,</span> <span class="s1">&#39;YYYY_MM&#39;</span><span class="p">));</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="c1">-- rename partition</span>
+</span><span class='line'>    <span class="k">execute</span> <span class="n">format</span><span class="p">(</span><span class="s1">&#39;alter table %s.%s rename to %s&#39;</span><span class="p">,</span>
+</span><span class='line'>        <span class="n">params</span><span class="o">-&gt;&gt;</span><span class="s1">&#39;partition_schema&#39;</span><span class="p">,</span>
+</span><span class='line'>        <span class="n">params</span><span class="o">-&gt;&gt;</span><span class="s1">&#39;partition&#39;</span><span class="p">,</span>
+</span><span class='line'>        <span class="n">new_relname</span><span class="p">);</span>
+</span><span class='line'><span class="k">end</span>
+</span><span class='line'><span class="err">$$</span>
+</span><span class='line'><span class="k">language</span> <span class="n">plpgsql</span><span class="p">;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Now let&rsquo;s assign the callback for the table, perform partitioning and see what will happen:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="o">#</span> <span class="k">select</span> <span class="n">set_init_callback</span><span class="p">(</span><span class="s1">&#39;my_table&#39;</span><span class="p">,</span> <span class="s1">&#39;my_callback(jsonb)&#39;</span><span class="p">);</span>
+</span><span class='line'><span class="o">#</span> <span class="k">select</span> <span class="n">create_range_partitions</span><span class="p">(</span><span class="s1">&#39;my_table&#39;</span><span class="p">,</span> <span class="s1">&#39;dt&#39;</span><span class="p">,</span> <span class="s1">&#39;2016-01-01&#39;</span><span class="p">::</span><span class="k">timestamp</span><span class="p">,</span> <span class="s1">&#39;1 month&#39;</span><span class="p">::</span><span class="nb">interval</span><span class="p">,</span> <span class="mi">3</span><span class="p">);</span>
+</span><span class='line'> <span class="n">create_range_partitions</span>
+</span><span class='line'><span class="c1">-------------------------</span>
+</span><span class='line'>                       <span class="mi">3</span>
+</span><span class='line'><span class="p">(</span><span class="mi">1</span> <span class="k">row</span><span class="p">)</span>
+</span><span class='line'><span class="o">#</span> <span class="k">select</span> <span class="o">*</span> <span class="k">from</span> <span class="n">pathman_partition_list</span><span class="p">;</span>
+</span><span class='line'>  <span class="n">parent</span>  <span class="o">|</span>      <span class="n">partition</span>      <span class="o">|</span> <span class="n">parttype</span> <span class="o">|</span> <span class="n">partattr</span> <span class="o">|</span>      <span class="n">range_min</span>      <span class="o">|</span>      <span class="n">range_max</span>
+</span><span class='line'><span class="c1">----------+---------------------+----------+----------+---------------------+---------------------</span>
+</span><span class='line'> <span class="n">my_table</span> <span class="o">|</span> <span class="n">my_table_2016_01_01</span> <span class="o">|</span>        <span class="mi">2</span> <span class="o">|</span> <span class="n">dt</span>       <span class="o">|</span> <span class="mi">2016</span><span class="o">-</span><span class="mi">01</span><span class="o">-</span><span class="mi">01</span> <span class="mi">00</span><span class="p">:</span><span class="mi">00</span><span class="p">:</span><span class="mi">00</span> <span class="o">|</span> <span class="mi">2016</span><span class="o">-</span><span class="mi">02</span><span class="o">-</span><span class="mi">01</span> <span class="mi">00</span><span class="p">:</span><span class="mi">00</span><span class="p">:</span><span class="mi">00</span>
+</span><span class='line'> <span class="n">my_table</span> <span class="o">|</span> <span class="n">my_table_2016_02_01</span> <span class="o">|</span>        <span class="mi">2</span> <span class="o">|</span> <span class="n">dt</span>       <span class="o">|</span> <span class="mi">2016</span><span class="o">-</span><span class="mi">02</span><span class="o">-</span><span class="mi">01</span> <span class="mi">00</span><span class="p">:</span><span class="mi">00</span><span class="p">:</span><span class="mi">00</span> <span class="o">|</span> <span class="mi">2016</span><span class="o">-</span><span class="mi">03</span><span class="o">-</span><span class="mi">01</span> <span class="mi">00</span><span class="p">:</span><span class="mi">00</span><span class="p">:</span><span class="mi">00</span>
+</span><span class='line'> <span class="n">my_table</span> <span class="o">|</span> <span class="n">my_table_2016_03_01</span> <span class="o">|</span>        <span class="mi">2</span> <span class="o">|</span> <span class="n">dt</span>       <span class="o">|</span> <span class="mi">2016</span><span class="o">-</span><span class="mi">03</span><span class="o">-</span><span class="mi">01</span> <span class="mi">00</span><span class="p">:</span><span class="mi">00</span><span class="p">:</span><span class="mi">00</span> <span class="o">|</span> <span class="mi">2016</span><span class="o">-</span><span class="mi">04</span><span class="o">-</span><span class="mi">01</span> <span class="mi">00</span><span class="p">:</span><span class="mi">00</span><span class="p">:</span><span class="mi">00</span>
+</span><span class='line'><span class="p">(</span><span class="mi">3</span> <span class="k">rows</span><span class="p">)</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Great, all partitions have been renamed!</p>
+
+<p>Now, renaming partitions isn&rsquo;t the only usage of callback functions. For example, you can setup the data rotation mechanism as described <a href="http://zilder.github.io/blog/2016/10/21/data-rotation-with-pg-pathman/">here</a>. Or automatically distribute partitions between few tablespaces. Let&rsquo;s see how it can be done:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+<span class='line-number'>27</span>
+<span class='line-number'>28</span>
+<span class='line-number'>29</span>
+<span class='line-number'>30</span>
+<span class='line-number'>31</span>
+</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="c1">-- suppose we have three tablespaces</span>
+</span><span class='line'><span class="k">create</span> <span class="n">tablespace</span> <span class="n">ts_0</span> <span class="k">location</span> <span class="s1">&#39;/path/to/ts_0&#39;</span><span class="p">;</span>
+</span><span class='line'><span class="k">create</span> <span class="n">tablespace</span> <span class="n">ts_1</span> <span class="k">location</span> <span class="s1">&#39;/path/to/ts_1&#39;</span><span class="p">;</span>
+</span><span class='line'><span class="k">create</span> <span class="n">tablespace</span> <span class="n">ts_2</span> <span class="k">location</span> <span class="s1">&#39;/path/to/ts_2&#39;</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="c1">-- we will use this counter to determine tablespace number for new partition</span>
+</span><span class='line'><span class="c1">-- based on round-robin algorithm</span>
+</span><span class='line'><span class="k">create</span> <span class="n">sequence</span> <span class="n">ts_counter</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">create</span> <span class="k">or</span> <span class="k">replace</span> <span class="k">function</span> <span class="n">my_callback</span><span class="p">(</span><span class="n">params</span> <span class="n">jsonb</span><span class="p">)</span>
+</span><span class='line'><span class="k">returns</span> <span class="n">void</span> <span class="k">as</span>
+</span><span class='line'><span class="err">$$</span>
+</span><span class='line'><span class="k">declare</span>
+</span><span class='line'>    <span class="n">ts_name</span>  <span class="nb">text</span><span class="p">;</span>
+</span><span class='line'><span class="k">begin</span>
+</span><span class='line'>  <span class="c1">-- calculate tablespace name</span>
+</span><span class='line'>    <span class="n">ts_name</span> <span class="o">=</span> <span class="s1">&#39;ts_&#39;</span> <span class="o">||</span> <span class="n">nextval</span><span class="p">(</span><span class="s1">&#39;ts_counter&#39;</span><span class="p">)</span> <span class="o">%</span> <span class="mi">3</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="c1">-- move partition to the tablespace</span>
+</span><span class='line'>    <span class="k">execute</span> <span class="n">format</span><span class="p">(</span><span class="s1">&#39;alter table %s.%s set tablespace %s&#39;</span><span class="p">,</span>
+</span><span class='line'>        <span class="n">params</span><span class="o">-&gt;&gt;</span><span class="s1">&#39;partition_schema&#39;</span><span class="p">,</span>
+</span><span class='line'>        <span class="n">params</span><span class="o">-&gt;&gt;</span><span class="s1">&#39;partition&#39;</span><span class="p">,</span>
+</span><span class='line'>        <span class="n">ts_name</span><span class="p">);</span>
+</span><span class='line'><span class="k">end</span>
+</span><span class='line'><span class="err">$$</span>
+</span><span class='line'><span class="k">language</span> <span class="n">plpgsql</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="c1">-- create table and partition it</span>
+</span><span class='line'><span class="k">create</span> <span class="k">table</span> <span class="n">my_table</span> <span class="p">(</span><span class="n">id</span> <span class="nb">serial</span><span class="p">);</span>
+</span><span class='line'><span class="k">select</span> <span class="n">set_init_callback</span><span class="p">(</span><span class="s1">&#39;my_table&#39;</span><span class="p">,</span> <span class="s1">&#39;my_callback(jsonb)&#39;</span><span class="p">);</span>
+</span><span class='line'><span class="k">select</span> <span class="n">create_range_partitions</span><span class="p">(</span><span class="s1">&#39;my_table&#39;</span><span class="p">,</span> <span class="s1">&#39;id&#39;</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">100</span><span class="p">,</span> <span class="mi">7</span><span class="p">);</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Let&rsquo;s see what we got:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">select</span> <span class="n">t</span><span class="p">.</span><span class="n">spcname</span><span class="p">,</span> <span class="n">p</span><span class="p">.</span><span class="o">*</span> <span class="k">from</span> <span class="n">pathman_partition_list</span> <span class="k">as</span> <span class="n">p</span>
+</span><span class='line'><span class="k">join</span> <span class="n">pg_class</span> <span class="k">as</span> <span class="k">c</span> <span class="k">on</span> <span class="k">c</span><span class="p">.</span><span class="n">oid</span> <span class="o">=</span> <span class="n">p</span><span class="p">.</span><span class="n">partition</span><span class="p">::</span><span class="n">regclass</span>
+</span><span class='line'><span class="k">join</span> <span class="n">pg_tablespace</span> <span class="k">as</span> <span class="n">t</span> <span class="k">on</span> <span class="n">t</span><span class="p">.</span><span class="n">oid</span> <span class="o">=</span> <span class="k">c</span><span class="p">.</span><span class="n">reltablespace</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'> <span class="n">spcname</span> <span class="o">|</span>  <span class="n">parent</span>  <span class="o">|</span> <span class="n">partition</span>  <span class="o">|</span> <span class="n">parttype</span> <span class="o">|</span> <span class="n">partattr</span> <span class="o">|</span> <span class="n">range_min</span> <span class="o">|</span> <span class="n">range_max</span>
+</span><span class='line'><span class="c1">---------+----------+------------+----------+----------+-----------+-----------</span>
+</span><span class='line'> <span class="n">ts_1</span>    <span class="o">|</span> <span class="n">my_table</span> <span class="o">|</span> <span class="n">my_table_1</span> <span class="o">|</span>        <span class="mi">2</span> <span class="o">|</span> <span class="n">id</span>       <span class="o">|</span> <span class="mi">1</span>         <span class="o">|</span> <span class="mi">101</span>
+</span><span class='line'> <span class="n">ts_2</span>    <span class="o">|</span> <span class="n">my_table</span> <span class="o">|</span> <span class="n">my_table_2</span> <span class="o">|</span>        <span class="mi">2</span> <span class="o">|</span> <span class="n">id</span>       <span class="o">|</span> <span class="mi">101</span>       <span class="o">|</span> <span class="mi">201</span>
+</span><span class='line'> <span class="n">ts_0</span>    <span class="o">|</span> <span class="n">my_table</span> <span class="o">|</span> <span class="n">my_table_3</span> <span class="o">|</span>        <span class="mi">2</span> <span class="o">|</span> <span class="n">id</span>       <span class="o">|</span> <span class="mi">201</span>       <span class="o">|</span> <span class="mi">301</span>
+</span><span class='line'> <span class="n">ts_1</span>    <span class="o">|</span> <span class="n">my_table</span> <span class="o">|</span> <span class="n">my_table_4</span> <span class="o">|</span>        <span class="mi">2</span> <span class="o">|</span> <span class="n">id</span>       <span class="o">|</span> <span class="mi">301</span>       <span class="o">|</span> <span class="mi">401</span>
+</span><span class='line'> <span class="n">ts_2</span>    <span class="o">|</span> <span class="n">my_table</span> <span class="o">|</span> <span class="n">my_table_5</span> <span class="o">|</span>        <span class="mi">2</span> <span class="o">|</span> <span class="n">id</span>       <span class="o">|</span> <span class="mi">401</span>       <span class="o">|</span> <span class="mi">501</span>
+</span><span class='line'> <span class="n">ts_0</span>    <span class="o">|</span> <span class="n">my_table</span> <span class="o">|</span> <span class="n">my_table_6</span> <span class="o">|</span>        <span class="mi">2</span> <span class="o">|</span> <span class="n">id</span>       <span class="o">|</span> <span class="mi">501</span>       <span class="o">|</span> <span class="mi">601</span>
+</span><span class='line'> <span class="n">ts_1</span>    <span class="o">|</span> <span class="n">my_table</span> <span class="o">|</span> <span class="n">my_table_7</span> <span class="o">|</span>        <span class="mi">2</span> <span class="o">|</span> <span class="n">id</span>       <span class="o">|</span> <span class="mi">601</span>       <span class="o">|</span> <span class="mi">701</span>
+</span><span class='line'><span class="p">(</span><span class="mi">7</span> <span class="k">rows</span><span class="p">)</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Yep, partitions were distributed between tablespace as required. And all partitions that will be created in future will also be destributed the same way.</p>
+
+<p>Another use case for callback functions is to keep the most recent data in a faster tablespace resided on SSD and move old data to a slower tablespace on HDD. The only pitfall here is that this operation can be pretty time consuming and will lock the transaction which triggers partition creation. So it would be better for callback function to add a task to a schedule and leave all the hard work to a scheduler.</p>
+
+<p>Good luck!</p>
+]]></content>
+    
+  </entry>
   
   <entry>
     
